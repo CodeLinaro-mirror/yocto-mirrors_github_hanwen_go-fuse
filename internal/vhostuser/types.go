@@ -242,23 +242,23 @@ type GetFeaturesReply struct {
 	Mask uint64
 }
 
-var decodeIn = map[uint32]func(unsafe.Pointer) interface{}{
-	REQ_ADD_MEM_REG:           func(p unsafe.Pointer) interface{} { return (*VhostUserMemRegMsg)(p) },
-	REQ_SET_FEATURES:          func(p unsafe.Pointer) interface{} { return (*SetFeaturesRequest)(p) },
-	REQ_SET_PROTOCOL_FEATURES: func(p unsafe.Pointer) interface{} { return (*SetProtocolFeaturesRequest)(p) },
-	REQ_SET_VRING_ADDR:        func(p unsafe.Pointer) interface{} { return (*VhostVringAddr)(p) },
-	REQ_SET_VRING_BASE:        func(p unsafe.Pointer) interface{} { return (*VhostVringState)(p) },
-	REQ_SET_VRING_CALL:        func(p unsafe.Pointer) interface{} { return (*U64Payload)(p) },
-	REQ_SET_VRING_ENABLE:      func(p unsafe.Pointer) interface{} { return (*VhostVringState)(p) },
-	REQ_SET_VRING_ERR:         func(p unsafe.Pointer) interface{} { return (*U64Payload)(p) },
-	REQ_SET_VRING_KICK:        func(p unsafe.Pointer) interface{} { return (*U64Payload)(p) },
-	REQ_SET_VRING_NUM:         func(p unsafe.Pointer) interface{} { return (*VhostVringState)(p) },
-	REQ_SET_LOG_BASE:          func(p unsafe.Pointer) interface{} { return (*VhostUserLog)(p) },
+var decodeIn = map[uint32]func(unsafe.Pointer) any{
+	REQ_ADD_MEM_REG:           func(p unsafe.Pointer) any { return (*VhostUserMemRegMsg)(p) },
+	REQ_SET_FEATURES:          func(p unsafe.Pointer) any { return (*SetFeaturesRequest)(p) },
+	REQ_SET_PROTOCOL_FEATURES: func(p unsafe.Pointer) any { return (*SetProtocolFeaturesRequest)(p) },
+	REQ_SET_VRING_ADDR:        func(p unsafe.Pointer) any { return (*VhostVringAddr)(p) },
+	REQ_SET_VRING_BASE:        func(p unsafe.Pointer) any { return (*VhostVringState)(p) },
+	REQ_SET_VRING_CALL:        func(p unsafe.Pointer) any { return (*U64Payload)(p) },
+	REQ_SET_VRING_ENABLE:      func(p unsafe.Pointer) any { return (*VhostVringState)(p) },
+	REQ_SET_VRING_ERR:         func(p unsafe.Pointer) any { return (*U64Payload)(p) },
+	REQ_SET_VRING_KICK:        func(p unsafe.Pointer) any { return (*U64Payload)(p) },
+	REQ_SET_VRING_NUM:         func(p unsafe.Pointer) any { return (*VhostVringState)(p) },
+	REQ_SET_LOG_BASE:          func(p unsafe.Pointer) any { return (*VhostUserLog)(p) },
 }
 
-var decodeOut = map[uint32]func(unsafe.Pointer) interface{}{
-	REQ_GET_FEATURES:          func(p unsafe.Pointer) interface{} { return (*GetFeaturesReply)(p) },
-	REQ_GET_PROTOCOL_FEATURES: func(p unsafe.Pointer) interface{} { return (*GetProtocolFeaturesReply)(p) },
+var decodeOut = map[uint32]func(unsafe.Pointer) any{
+	REQ_GET_FEATURES:          func(p unsafe.Pointer) any { return (*GetFeaturesReply)(p) },
+	REQ_GET_PROTOCOL_FEATURES: func(p unsafe.Pointer) any { return (*GetProtocolFeaturesReply)(p) },
 }
 
 var inFDCount = map[uint32]int{

@@ -213,7 +213,7 @@ func doNotifyReply(server *protocolServer, req *request) {
 	delete(server.retrieveTab, reply.Unique)
 	server.retrieveMu.Unlock()
 
-	badf := func(format string, argv ...interface{}) {
+	badf := func(format string, argv ...any) {
 		server.opts.Logger.Printf("notify reply: "+format, argv...)
 	}
 
@@ -491,7 +491,7 @@ func doInterrupt(server *protocolServer, req *request) {
 ////////////////////////////////////////////////////////////////
 
 type operationFunc func(*protocolServer, *request)
-type castPointerFunc func(unsafe.Pointer) interface{}
+type castPointerFunc func(unsafe.Pointer) any
 
 type operationHandler struct {
 	OpCode     int
@@ -500,8 +500,8 @@ type operationHandler struct {
 	InputSize  uintptr
 	OutputSize uintptr
 
-	InType        interface{}
-	OutType       interface{}
+	InType        any
+	OutType       any
 	FileNames     int
 	FileNameOut   bool
 	SuppressReply bool
@@ -653,7 +653,7 @@ func init() {
 	}
 
 	// Outputs.
-	for op, f := range map[uint32]interface{}{
+	for op, f := range map[uint32]any{
 		_OP_BMAP:                  _BmapOut{},
 		_OP_COPY_FILE_RANGE:       WriteOut{},
 		_OP_CREATE:                CreateOut{},
@@ -688,7 +688,7 @@ func init() {
 	}
 
 	// Inputs.
-	for op, f := range map[uint32]interface{}{
+	for op, f := range map[uint32]any{
 		_OP_ACCESS:             AccessIn{},
 		_OP_BATCH_FORGET:       _BatchForgetIn{},
 		_OP_BMAP:               _BmapIn{},

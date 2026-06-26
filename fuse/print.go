@@ -378,7 +378,7 @@ func (p *_PollIn) string() string {
 }
 
 // Print pretty prints FUSE data types for kernel communication
-func Print(obj interface{}) string {
+func Print(obj any) string {
 	t, ok := obj.(interface {
 		string() string
 	})

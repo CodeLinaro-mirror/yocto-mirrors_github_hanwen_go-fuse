@@ -74,10 +74,7 @@ func (bn *bytesNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, of
 	bn.mu.Lock()
 	defer bn.mu.Unlock()
 
-	end := off + int64(len(dest))
-	if end > int64(len(bn.content)) {
-		end = int64(len(bn.content))
-	}
+	end := min(off+int64(len(dest)), int64(len(bn.content)))
 
 	// We could copy to the `dest` buffer, but since we have a
 	// []byte already, return that.

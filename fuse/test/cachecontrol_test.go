@@ -41,10 +41,7 @@ func (d *DataNode) GetAttr(out *fuse.Attr, _ nodefs.File, _ *fuse.Context) fuse.
 
 func (d *DataNode) Read(_ nodefs.File, dest []byte, off int64, _ *fuse.Context) (fuse.ReadResult, fuse.Status) {
 	l := int64(len(d.data))
-	end := off + l
-	if end > l {
-		end = l
-	}
+	end := min(off+l, l)
 
 	return fuse.ReadResultData(d.data[off:end]), fuse.OK
 }

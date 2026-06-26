@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -168,10 +169,7 @@ func (o *MountOptions) setDefaults(fs RawFileSystem) {
 	}
 	if o.Name == "" {
 		name := fs.String()
-		l := len(name)
-		if l > _MAX_NAME_LEN {
-			l = _MAX_NAME_LEN
-		}
+		l := min(len(name), _MAX_NAME_LEN)
 		o.Name = strings.Replace(name[:l], ",", ";", -1)
 	}
 	if o.PanicHandler == nil {
@@ -237,14 +235,14 @@ func NewServer(fs RawFileSystem, mountPoint string, opts *MountOptions) (*Server
 		singleReader: useSingleReader,
 		ready:        make(chan error, 1),
 	}
-	ms.reqPool.New = func() interface{} {
+	ms.reqPool.New = func() any {
 		return &requestAlloc{
 			request: request{
 				cancel: make(chan struct{}),
 			},
 		}
 	}
-	ms.readPool.New = func() interface{} {
+	ms.readPool.New = func() any {
 		// O_DIRECT typically requires buffers aligned to
 		// blocksize (see man 2 open), but requirements vary
 		// across file systems. Presumably, we could also fix
@@ -286,10 +284,7 @@ func NewServer(fs RawFileSystem, mountPoint string, opts *MountOptions) (*Server
 }
 
 func requestAccountingSizes(maxWrite int) (readBufSize, readBufBytes, reqAllocBytes int) {
-	readBufSize = maxWrite + int(maxInputSize)
-	if readBufSize < _FUSE_MIN_READ_BUFFER {
-		readBufSize = _FUSE_MIN_READ_BUFFER
-	}
+	readBufSize = max(maxWrite+int(maxInputSize), _FUSE_MIN_READ_BUFFER)
 	readBufBytes = readBufSize + logicalBlockSize
 	reqAllocBytes = int(unsafe.Sizeof(requestAlloc{}))
 	return
@@ -336,12 +331,7 @@ func (o *MountOptions) optionsStrings() []string {
 }
 
 func (o *MountOptions) containsOption(opt string) bool {
-	for _, o := range o.Options {
-		if o == opt {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(o.Options, opt)
 }
 
 // DebugData returns internal status information for debugging
@@ -636,13 +626,11 @@ func (ms *Server) PruneNotify(nodes []uint64) Status {
 // region, it gives updated data directly to the kernel.
 func (ms *protocolServer) InodeNotifyStoreCache(node uint64, offset int64, data []byte) Status {
 	for len(data) > 0 {
-		size := len(data)
-		if size > math.MaxInt32 {
+		size := min(len(data),
 			// NotifyStoreOut has only uint32 for size.
 			// we check for max(int32), not max(uint32), because on 32-bit
 			// platforms int has only 31-bit for positive range.
-			size = math.MaxInt32
-		}
+			math.MaxInt32)
 
 		st := ms.inodeNotifyStoreCache32(node, offset, data[:size])
 		if st != OK {
@@ -686,10 +674,7 @@ func (ms *protocolServer) InodeRetrieveCache(node uint64, offset int64, dest []b
 	// TODO spawn some number of readahead retrievers in parallel.
 	ntotal := 0
 	for {
-		chunkSize := len(dest)
-		if chunkSize > ms.opts.MaxWrite {
-			chunkSize = ms.opts.MaxWrite
-		}
+		chunkSize := min(len(dest), ms.opts.MaxWrite)
 		n, st = ms.inodeRetrieveCache1(node, offset, dest[:chunkSize])
 		if st != OK || n == 0 {
 			break
@@ -718,10 +703,7 @@ func (ms *protocolServer) inodeRetrieveCache1(node uint64, offset int64, dest []
 	//
 	// ( InodeRetrieveCache calls us with chunks not larger than
 	//   ms.opts.MaxWrite, but MaxWrite is int, so let's be extra cautious )
-	size := len(dest)
-	if size > math.MaxInt32 {
-		size = math.MaxInt32
-	}
+	size := min(len(dest), math.MaxInt32)
 	dest = dest[:size]
 
 	q := (*NotifyRetrieveOut)(req.outData())

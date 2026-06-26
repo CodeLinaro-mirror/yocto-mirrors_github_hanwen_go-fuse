@@ -297,7 +297,7 @@ func (s *Server) oneRequest() error {
 	// mutations are never concurrent with vring dequeue (readLoop holds the
 	// read lock while draining).
 	s.device.dispatchMu.Lock()
-	var rep interface{}
+	var rep any
 	var deviceErr error
 	switch inHeader.Request {
 	case REQ_GET_FEATURES:

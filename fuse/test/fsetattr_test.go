@@ -30,10 +30,7 @@ func (f *MutableDataFile) String() string {
 }
 
 func (f *MutableDataFile) Read(buf []byte, off int64) (fuse.ReadResult, fuse.Status) {
-	end := int(off) + len(buf)
-	if end > len(f.data) {
-		end = len(f.data)
-	}
+	end := min(int(off)+len(buf), len(f.data))
 
 	return fuse.ReadResultData(f.data[off:end]), fuse.OK
 }

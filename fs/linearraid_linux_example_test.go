@@ -51,10 +51,7 @@ func (n *linearRaidNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 	}
 
 	// Total bytes to serve, clamped to file size and dest buffer.
-	end := off + int64(len(dest))
-	if end > n.size {
-		end = n.size
-	}
+	end := min(off+int64(len(dest)), n.size)
 	total := int(end - off)
 
 	pair, err := splice.Get()

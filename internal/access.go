@@ -6,6 +6,7 @@ package internal
 
 import (
 	"os/user"
+	"slices"
 	"strconv"
 )
 
@@ -51,10 +52,5 @@ func HasAccess(callerUid, callerGid, fileUid, fileGid uint32, perm uint32, mask 
 	}
 
 	fileGidStr := strconv.Itoa(int(fileGid))
-	for _, gidStr := range gs {
-		if gidStr == fileGidStr {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(gs, fileGidStr)
 }

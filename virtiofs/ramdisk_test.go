@@ -29,8 +29,8 @@ func decompressModule(path string) ([]byte, error) {
 // stripCompression removes a trailing .xz or .zst suffix.
 func stripCompression(name string) string {
 	for _, suf := range []string{".zst", ".xz"} {
-		if strings.HasSuffix(name, suf) {
-			return strings.TrimSuffix(name, suf)
+		if before, ok := strings.CutSuffix(name, suf); ok {
+			return before
 		}
 	}
 	return name

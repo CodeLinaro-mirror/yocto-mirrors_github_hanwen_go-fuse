@@ -25,10 +25,7 @@ type bytesFileHandle struct {
 var _ = (fs.FileReader)((*bytesFileHandle)(nil))
 
 func (fh *bytesFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
-	end := off + int64(len(dest))
-	if end > int64(len(fh.content)) {
-		end = int64(len(fh.content))
-	}
+	end := min(off+int64(len(dest)), int64(len(fh.content)))
 
 	// We could copy to the `dest` buffer, but since we have a
 	// []byte already, return that.

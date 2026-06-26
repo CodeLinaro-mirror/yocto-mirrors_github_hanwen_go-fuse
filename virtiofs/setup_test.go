@@ -151,8 +151,8 @@ func findVirtioFSModules() ([]string, error) {
 		if strings.HasPrefix(line, "builtin") {
 			return nil, nil // compiled in, nothing to load
 		}
-		if strings.HasPrefix(line, "insmod ") {
-			paths = append(paths, strings.TrimPrefix(line, "insmod "))
+		if after, ok := strings.CutPrefix(line, "insmod "); ok {
+			paths = append(paths, after)
 		}
 	}
 	if len(paths) == 0 {

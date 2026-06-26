@@ -52,10 +52,7 @@ type byteReaderAt struct {
 }
 
 func (br *byteReaderAt) ReadAt(data []byte, off int64) (int, error) {
-	end := int(off) + len(data)
-	if end > len(br.b) {
-		end = len(br.b)
-	}
+	end := min(int(off)+len(data), len(br.b))
 
 	copy(data, br.b[off:end])
 	return end - int(off), nil

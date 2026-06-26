@@ -92,11 +92,11 @@ func (r *request) clear() {
 	r.readResult = nil
 }
 
-func asType(ptr unsafe.Pointer, typ interface{}) interface{} {
+func asType(ptr unsafe.Pointer, typ any) any {
 	return reflect.NewAt(reflect.ValueOf(typ).Type(), ptr).Interface()
 }
 
-func typSize(typ interface{}) uintptr {
+func typSize(typ any) uintptr {
 	return reflect.ValueOf(typ).Type().Size()
 }
 

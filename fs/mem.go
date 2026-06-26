@@ -93,10 +93,7 @@ func (f *MemRegularFile) Flush(ctx context.Context, fh FileHandle) syscall.Errno
 func (f *MemRegularFile) Read(ctx context.Context, fh FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	end := int(off) + len(dest)
-	if end > len(f.Data) {
-		end = len(f.Data)
-	}
+	end := min(int(off)+len(dest), len(f.Data))
 	return fuse.ReadResultData(f.Data[off:end]), OK
 }
 
