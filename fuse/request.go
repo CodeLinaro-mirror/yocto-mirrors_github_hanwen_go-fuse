@@ -216,7 +216,6 @@ func parseRequest(in []byte, kernelSettings *InitIn) (h *operationHandler, inSiz
 	hdr := (*InHeader)(inData)
 	h = getHandler(hdr.Opcode)
 	if h == nil {
-		log.Printf("Unknown opcode %d", hdr.Opcode)
 		errno = ENOSYS
 		return
 	}

@@ -37,12 +37,12 @@ func (ms *protocolServer) handleRequest(h *operationHandler, req *request) {
 		ms.opts.Logger.Println(req.InputDebug())
 	}
 
-	if req.inHeader().NodeId == pollHackInode ||
-		req.inHeader().NodeId == FUSE_ROOT_ID && h.FileNames > 0 && req.filename() == pollHackName {
-		doPollHackLookup(ms, req)
-	} else if req.status.Ok() && h.Func == nil {
+	if h == nil || h.Func == nil {
 		ms.opts.Logger.Printf("Unimplemented opcode %v", operationName(req.inHeader().Opcode))
 		req.status = ENOSYS
+	} else if req.inHeader().NodeId == pollHackInode ||
+		req.inHeader().NodeId == FUSE_ROOT_ID && h.FileNames > 0 && req.filename() == pollHackName {
+		doPollHackLookup(ms, req)
 	} else if req.status.Ok() {
 		func() {
 			defer func() {
@@ -64,6 +64,8 @@ func (ms *protocolServer) handleRequest(h *operationHandler, req *request) {
 		if req.status.Ok() {
 			req.suppressReply = true
 		}
+	default:
+		req.suppressReply = h != nil && h.SuppressReply
 	}
 	if req.status == EINTR {
 		ms.interruptMu.Lock()

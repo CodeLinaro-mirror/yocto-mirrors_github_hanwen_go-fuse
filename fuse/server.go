@@ -503,12 +503,10 @@ func (ms *Server) handleRequest(req *requestAlloc) Status {
 	}
 
 	h, inSize, outSize, outPayloadSize, code := parseRequest(req.inputBuf, &ms.kernelSettings)
-	if !code.Ok() {
+	req.request.status = code
+	if !code.Ok() && code != ENOSYS {
 		ms.opts.Logger.Printf("parseRequest: %v", code)
-		return code
 	}
-
-	req.suppressReply = h.SuppressReply
 	req.inPayload = req.inputBuf[inSize:]
 	req.inputBuf = req.inputBuf[:inSize]
 	req.outHeaderBuf = req.outHeaderInline[:]

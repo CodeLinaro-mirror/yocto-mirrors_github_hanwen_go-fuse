@@ -450,6 +450,10 @@ func doIoctl(server *protocolServer, req *request) {
 		req.outPayload)
 }
 
+func doPoll(server *protocolServer, req *request) {
+	req.status = ENOSYS
+}
+
 func doDestroy(server *protocolServer, req *request) {
 	req.status = OK
 }
@@ -512,7 +516,7 @@ var operationHandlers []*operationHandler
 func operationName(op uint32) string {
 	h := getHandler(op)
 	if h == nil {
-		return "unknown"
+		return fmt.Sprintf("opcode %d", op)
 	}
 	return h.Name
 }
@@ -640,6 +644,7 @@ func init() {
 		_OP_RENAME:          doRename,
 		_OP_STATFS:          doStatFs,
 		_OP_IOCTL:           doIoctl,
+		_OP_POLL:            doPoll,
 		_OP_DESTROY:         doDestroy,
 		_OP_NOTIFY_REPLY:    doNotifyReply,
 		_OP_FALLOCATE:       doFallocate,
