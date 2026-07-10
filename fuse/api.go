@@ -249,8 +249,9 @@ type MountOptions struct {
 	// locking wrapper.
 	SingleThreaded bool
 
-	// DisableXAttrs, if set, returns ENOSYS for Getxattr calls, so the kernel
-	// does not issue any Xattr operations at all.
+	// DisableXAttrs, if set, returns ENOSYS for Getxattr, Setxattr and
+	// Removexattr calls, so the kernel does not issue any Xattr operations
+	// at all.
 	DisableXAttrs bool
 
 	// Debug, if set, enables verbose debugging information.

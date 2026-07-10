@@ -392,6 +392,10 @@ func doFsyncDir(server *protocolServer, req *request) {
 }
 
 func doSetXAttr(server *protocolServer, req *request) {
+	if server.opts.DisableXAttrs {
+		req.status = ENOSYS
+		return
+	}
 	i := bytes.IndexByte(req.inPayload, 0)
 	if i < 0 {
 		req.status = EINVAL
@@ -401,6 +405,10 @@ func doSetXAttr(server *protocolServer, req *request) {
 }
 
 func doRemoveXAttr(server *protocolServer, req *request) {
+	if server.opts.DisableXAttrs {
+		req.status = ENOSYS
+		return
+	}
 	req.status = server.fileSystem.RemoveXAttr(req.cancel, req.inHeader(), req.filename())
 }
 
