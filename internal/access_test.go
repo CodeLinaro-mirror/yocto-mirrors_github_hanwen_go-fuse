@@ -7,6 +7,7 @@ package internal
 import (
 	"os/user"
 	"strconv"
+	"syscall"
 	"testing"
 )
 
@@ -62,10 +63,31 @@ func TestHasAccess(t *testing.T) {
 		{myUid, myGid, myUid, myGid, 0000, 01, false},
 		{myUid, myGid, myUid, myGid, 0200, 01, false},
 		{0, myGid, myUid + 1, notMyGid, 0700, 01, true},
+
+		// The owner class is used exclusively: other/group bits do
+		// not apply, even if they are more permissive.
+		{myUid, myGid, myUid, notMyGid, 0007, 04, false},
+		{myUid, myGid, myUid, notMyGid, 0077, 04, false},
+		// Same for the group class.
+		{myUid, myGid, myUid + 1, myGid, 0004, 04, false},
+		// All requested bits must be granted, not just one.
+		{myUid, myGid, myUid, myGid, 0400, 06, false},
+		{myUid, myGid, myUid, myGid, 0600, 06, true},
+		{myUid, myGid, myUid + 1, notMyGid, 0004, 06, false},
+		// Root can read/write anything, but needs at least one
+		// execute bit (or a directory) for execute access.
+		{0, 0, myUid, myGid, 0000, 06, true},
+		{0, 0, myUid, myGid, 0600, 01, false},
+		{0, 0, myUid, myGid, 0610, 01, true},
+		{0, 0, myUid, myGid, syscall.S_IFDIR | 0600, 01, true},
+		{0, 0, myUid, myGid, syscall.S_IFREG | 0600, 01, false},
 	}
 
 	if myOtherGid != 0 {
 		cases = append(cases, testcase{myUid, myGid, myUid + 1, myOtherGid, 0020, 002, true})
+		// Supplementary group membership selects the group class
+		// even when it denies access granted to others.
+		cases = append(cases, testcase{myUid, myGid, myUid + 1, myOtherGid, 0004, 04, false})
 	}
 	for i, tc := range cases {
 		got := HasAccess(tc.uid, tc.gid, tc.fuid, tc.fgid, tc.perm, tc.mask)
