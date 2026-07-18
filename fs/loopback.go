@@ -524,7 +524,12 @@ func (n *LoopbackNode) CopyFileRange(ctx context.Context, fhIn FileHandle,
 	}
 	signedOffIn := int64(offIn)
 	signedOffOut := int64(offOut)
-	doCopyFileRange(lfIn.fd, signedOffIn, lfOut.fd, signedOffOut, int(len), int(flags))
+	lfIn.withFd(func(fdIn int) syscall.Errno {
+		return lfOut.withFd(func(fdOut int) syscall.Errno {
+			doCopyFileRange(fdIn, signedOffIn, fdOut, signedOffOut, int(len), int(flags))
+			return OK
+		})
+	})
 	return 0, syscall.ENOSYS
 }
 
