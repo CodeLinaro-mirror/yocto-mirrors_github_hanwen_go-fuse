@@ -244,20 +244,20 @@ var _ = (NodeCreater)((*LoopbackNode)(nil))
 func (n *LoopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *Inode, fh FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
 	flags = flags &^ syscall.O_APPEND
-	fd, err := syscall.Open(p, int(flags)|os.O_CREATE, mode)
+	f, err := os.OpenFile(p, int(flags)|os.O_CREATE, os.FileMode(mode))
 	if err != nil {
 		return nil, nil, 0, ToErrno(err)
 	}
 	n.preserveOwner(ctx, p)
 	st := syscall.Stat_t{}
-	if err := syscall.Fstat(fd, &st); err != nil {
-		syscall.Close(fd)
+	if err := syscall.Fstat(int(f.Fd()), &st); err != nil {
+		f.Close()
 		return nil, nil, 0, ToErrno(err)
 	}
 
 	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
-	lf := NewLoopbackFile(fd)
+	lf := NewLoopbackFileFromOS(f)
 
 	out.FromStat(&st)
 	return ch, lf, 0, 0

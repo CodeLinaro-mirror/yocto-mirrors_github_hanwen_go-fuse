@@ -17,13 +17,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// NewLoopbackFile creates a FileHandle out of a file descriptor. All
-// operations are implemented. NewLoopbackFile takes ownership of the
+// NewLoopbackFile creates a FileHandle out of a file descriptor.
+//
+// This function is hard to use correctly. Most callers should use
+// NewLoopbackFileFromOS instead.
+//
+// All operations are implemented. NewLoopbackFile takes ownership of the
 // file descriptor: it is closed on Release, or when the FileHandle is
-// garbage collected. When using the Fd from a *os.File, call
-// syscall.Dup() on the fd, to avoid a double close.
+// garbage collected.
 func NewLoopbackFile(fd int) FileHandle {
-	return &LoopbackFile{f: os.NewFile(uintptr(fd), "")}
+	// Wart: this should return *LoopbackFile instead.
+	return NewLoopbackFileFromOS(os.NewFile(uintptr(fd), ""))
+}
+
+// NewLoopbackFileFromOS creates a FileHandle out of a *os.File. It
+// takes ownership of the file: it is closed on Release, and callers
+// should not use it afterwards.
+func NewLoopbackFileFromOS(f *os.File) *LoopbackFile {
+	return &LoopbackFile{f: f}
 }
 
 // LoopbackFile is a FileHandle that implements all the FileXxxx
