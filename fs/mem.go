@@ -79,7 +79,13 @@ func (f *MemRegularFile) Setattr(ctx context.Context, fh FileHandle, in *fuse.Se
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if sz, ok := in.GetSize(); ok {
-		f.Data = f.Data[:sz]
+		if sz <= uint64(len(f.Data)) {
+			f.Data = f.Data[:sz]
+		} else {
+			n := make([]byte, sz)
+			copy(n, f.Data)
+			f.Data = n
+		}
 	}
 	out.Attr = f.Attr
 	out.Size = uint64(len(f.Data))

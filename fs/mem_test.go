@@ -207,6 +207,54 @@ func TestDataFileLargeRead(t *testing.T) {
 	}
 }
 
+func TestMemFileExtendingTruncate(t *testing.T) {
+	// len < cap, with stale bytes beyond len.
+	backing := []byte("hello, stale bytes")
+	data := backing[:5]
+
+	root := &Inode{}
+	mntDir, _ := testMount(t, root, &Options{
+		FirstAutomaticIno: 1,
+		OnAdd: func(ctx context.Context) {
+			n := root.EmbeddedInode()
+			ch := n.NewPersistentInode(
+				ctx,
+				&MemRegularFile{
+					Data: data,
+					Attr: fuse.Attr{
+						Mode: 0644,
+					},
+				},
+				StableAttr{})
+			n.AddChild("file", ch, false)
+		},
+	})
+
+	fn := mntDir + "/file"
+	for _, sz := range []int{10, 2 * len(backing)} {
+		if err := os.Truncate(fn, int64(sz)); err != nil {
+			t.Fatalf("Truncate(%d): %v", sz, err)
+		}
+		got, err := os.ReadFile(fn)
+		if err != nil {
+			t.Fatalf("ReadFile: %v", err)
+		}
+		want := append([]byte("hello"), make([]byte, sz-5)...)
+		if !bytes.Equal(got, want) {
+			t.Errorf("truncate to %d: got %q, want %q", sz, got, want)
+		}
+	}
+
+	if err := os.Truncate(fn, 3); err != nil {
+		t.Fatalf("Truncate(3): %v", err)
+	}
+	if got, err := os.ReadFile(fn); err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	} else if want := "hel"; string(got) != want {
+		t.Errorf("truncate to 3: got %q, want %q", got, want)
+	}
+}
+
 type SymlinkerRoot struct {
 	Inode
 }
