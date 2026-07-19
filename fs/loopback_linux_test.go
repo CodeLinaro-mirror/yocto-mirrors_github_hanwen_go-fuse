@@ -122,46 +122,32 @@ func TestCopyFileRange(t *testing.T) {
 	tc.writeOrig("src", "01234567890123456789", 0644)
 	tc.writeOrig("dst", "abcdefghijabcdefghij", 0644)
 
-	f1, err := syscall.Open(tc.mntDir+"/src", syscall.O_RDONLY, 0)
+	f1, err := os.OpenFile(tc.mntDir+"/src", syscall.O_RDONLY, 0)
 	if err != nil {
 		t.Fatalf("Open src: %v", err)
 	}
-	defer func() {
-		// syscall.Close() is treacherous; because fds are
-		// reused, a double close can cause serious havoc
-		if f1 > 0 {
-			syscall.Close(f1)
-		}
-	}()
+	defer f1.Close()
 
-	f2, err := syscall.Open(tc.mntDir+"/dst", syscall.O_RDWR, 0)
+	f2, err := os.OpenFile(tc.mntDir+"/dst", syscall.O_RDWR, 0)
 	if err != nil {
 		t.Fatalf("Open dst: %v", err)
 	}
-	defer func() {
-		if f2 > 0 {
-			defer syscall.Close(f2)
-		}
-	}()
+	defer f2.Close()
 
 	srcOff := int64(5)
 	dstOff := int64(7)
-	if sz, err := unix.CopyFileRange(f1, &srcOff, f2, &dstOff, 3, 0); err != nil || sz != 3 {
+	if sz, err := unix.CopyFileRange(int(f1.Fd()), &srcOff, int(f2.Fd()), &dstOff, 3, 0); err != nil || sz != 3 {
 		t.Fatalf("CopyFileRange: %d,%v", sz, err)
 	}
 
-	err = syscall.Close(f1)
-	f1 = 0
-	if err != nil {
+	if err = f1.Close(); err != nil {
 		t.Fatalf("Close src: %v", err)
 	}
 
-	err = syscall.Close(f2)
-	f2 = 0
-	if err != nil {
+	if err = f2.Close(); err != nil {
 		t.Fatalf("Close dst: %v", err)
 	}
-	c, err := os.ReadFile(tc.mntDir + "/dst")
+	c, err := os.ReadFile(tc.origDir + "/dst")
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
