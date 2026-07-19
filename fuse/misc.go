@@ -58,7 +58,7 @@ func ToStatus(err error) Status {
 		return Status(errno)
 	}
 	log.Println("can't convert error type:", err)
-	return ENOSYS
+	return ENOTSUP
 }
 
 func CurrentOwner() *Owner {
