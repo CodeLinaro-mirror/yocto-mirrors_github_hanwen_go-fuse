@@ -189,7 +189,7 @@ type MountOptions struct {
 	CongestionThreshold int
 
 	// MaxWrite is the max size for read and write requests. If 0, use
-	// go-fuse default (currently 64 kiB).
+	// go-fuse default (currently 128 kiB).
 	// This number is internally capped at MAX_KERNEL_WRITE (higher values don't make
 	// sense).
 	//
@@ -366,7 +366,7 @@ type MountOptions struct {
 	// If unset, the default is 1.
 	MaxStackDepth int
 
-	// RawFileSystem, if set, enables an ID-mapped mount if the Kernel supports
+	// IDMappedMount, if set, enables an ID-mapped mount if the Kernel supports
 	// it.
 	//
 	// An ID-mapped mount allows the device to be mounted on the system with the
