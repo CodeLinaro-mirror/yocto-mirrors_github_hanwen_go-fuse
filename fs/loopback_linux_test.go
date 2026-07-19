@@ -16,6 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/hanwen/go-fuse/v2/internal/ioctl"
 	"github.com/hanwen/go-fuse/v2/internal/testutil"
 	"golang.org/x/sys/unix"
 )
@@ -426,6 +427,65 @@ func TestIoctlLoopbackDir(t *testing.T) {
 
 	if after != !before {
 		t.Fatalf("didn't work: after %v, before %v", after, before)
+	}
+}
+
+// fiemap mirrors struct fiemap from linux/fiemap.h, without the
+// variable-length fm_extents array.
+type fiemap struct {
+	Start         uint64
+	Length        uint64
+	Flags         uint32
+	MappedExtents uint32
+	ExtentCount   uint32
+	Reserved      uint32
+}
+
+const fiemapFlagSync = 0x1 // FIEMAP_FLAG_SYNC
+
+// TestIoctlFIEMAP exercises a _IOWR ioctl: the kernel reads the
+// request struct and writes the result into the same buffer, so the
+// result must be copied into the FUSE output buffer.
+func TestIoctlFIEMAP(t *testing.T) {
+	// Create the file in the current directory rather than TMPDIR:
+	// /tmp is often tmpfs, which does not support FIEMAP.
+	tmp, err := os.CreateTemp(".", "fiemap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn := tmp.Name()
+	tmp.Close()
+	t.Cleanup(func() { os.Remove(fn) })
+	if err := os.WriteFile(fn, bytes.Repeat([]byte{42}, 64*1024), 0666); err != nil {
+		t.Fatal(err)
+	}
+	fd, err := syscall.Open(fn, syscall.O_RDONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer syscall.Close(fd)
+
+	req := fiemap{
+		Length: ^uint64(0),
+		Flags:  fiemapFlagSync,
+	}
+	sz := unsafe.Sizeof(req)
+	input := unsafe.Slice((*byte)(unsafe.Pointer(&req)), sz)
+	var rep fiemap
+	output := unsafe.Slice((*byte)(unsafe.Pointer(&rep)), sz)
+
+	// FS_IOC_FIEMAP = _IOWR('f', 11, struct fiemap)
+	cmd := ioctl.New(ioctl.READ|ioctl.WRITE, 'f', 11, sz)
+	lf := NewLoopbackFile(fd).(FileIoctler)
+	_, errno := lf.Ioctl(context.Background(), uint32(cmd), 0, input, output)
+	if errno == syscall.ENOTTY || errno == syscall.EOPNOTSUPP {
+		t.Skipf("FIEMAP on %q unsupported: %v", fn, errno)
+	}
+	if errno != 0 {
+		t.Fatalf("Ioctl(FS_IOC_FIEMAP): %v", errno)
+	}
+	if rep.MappedExtents == 0 {
+		t.Errorf("FIEMAP result was not copied to the output buffer: %+v", rep)
 	}
 }
 

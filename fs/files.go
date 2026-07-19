@@ -299,9 +299,13 @@ func (f *LoopbackFile) Ioctl(ctx context.Context, cmd uint32, arg uint64, input 
 	errno = f.withFd(func(fd int) syscall.Errno {
 		argWord := uintptr(arg)
 		ioc := ioctl.Command(cmd)
-		if ioc.Read() {
-			argWord = uintptr(unsafe.Pointer(&input[0]))
+		if ioc.Read() && ioc.Write() {
+			// The kernel updates the buffer in place.
+			copy(output, input)
+			argWord = uintptr(unsafe.Pointer(&output[0]))
 		} else if ioc.Write() {
+			argWord = uintptr(unsafe.Pointer(&input[0]))
+		} else if ioc.Read() {
 			argWord = uintptr(unsafe.Pointer(&output[0]))
 		}
 
