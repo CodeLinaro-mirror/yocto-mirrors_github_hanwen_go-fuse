@@ -177,6 +177,9 @@ func modeToType(mode uint32) uint32 {
 // be needed when a directory changes while READDIRPLUS is running.
 // Only the file type bits of mode are considered, the rest is masked out.
 func (l *DirEntryList) FixMode(mode uint32) {
+	if l.lastDirent == nil {
+		return
+	}
 	l.lastDirent.Typ = modeToType(mode)
 }
 
