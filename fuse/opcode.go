@@ -546,7 +546,7 @@ func getHandler(o uint32) *operationHandler {
 	return operationHandlers[o]
 }
 
-// maximum size of all input headers
+// Maximum size of all input headers.
 var maxInputSize uintptr
 
 func init() {
@@ -752,11 +752,7 @@ func init() {
 		_OP_COPY_FILE_RANGE_64: CopyFileRangeIn{},
 	} {
 		operationHandlers[op].InType = f
-		sz := typSize(f)
-		operationHandlers[op].InputSize = sz
-		if maxInputSize < sz {
-			maxInputSize = sz
-		}
+		operationHandlers[op].InputSize = typSize(f)
 	}
 
 	// File name args.
@@ -786,6 +782,9 @@ func checkFixedBufferSize() {
 	for code, h := range operationHandlers {
 		if h.OutputSize > unsafe.Sizeof(r.outDataInline) {
 			log.Panicf("request output buffer too small: code %v, sz %d %v", code, h.OutputSize, h)
+		}
+		if maxInputSize < h.InputSize {
+			maxInputSize = h.InputSize
 		}
 	}
 }
