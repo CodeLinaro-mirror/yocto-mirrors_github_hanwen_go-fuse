@@ -87,7 +87,17 @@ const (
 ////////////////////////////////////////////////////////////////
 
 func doInit(server *protocolServer, req *request) {
-	input := (*InitIn)(req.inData())
+	var input *InitIn
+	if len(req.inputBuf) < int(unsafe.Sizeof(InitIn{})) {
+		// Kernels predating protocol 7.36 send a 16-byte INIT
+		// payload; zero-extend it so the full struct can be
+		// read safely.
+		var extended InitIn
+		copy(unsafe.Slice((*byte)(unsafe.Pointer(&extended)), unsafe.Sizeof(extended)), req.inputBuf)
+		input = &extended
+	} else {
+		input = (*InitIn)(req.inData())
+	}
 	if input.Major != _FUSE_KERNEL_VERSION {
 		log.Printf("Major versions does not match. Given %d, want %d\n", input.Major, _FUSE_KERNEL_VERSION)
 		req.status = EIO
