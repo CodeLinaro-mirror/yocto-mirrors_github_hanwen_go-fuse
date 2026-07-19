@@ -13,10 +13,12 @@ systems
 
 ## Release notes
 
-
 v2.11:
 
 * fuse: added MountOptions.PanicHandler; panics no longer crash the server.
+* fuse: expose CongestionThreshold as a separate MountOption
+* fuse: MountOption.MaxInflightRequestBytes
+* fs: NewLoopbackFileFromOS
 
 v2.10:
 
