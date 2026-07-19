@@ -444,6 +444,14 @@ func (n *LoopbackNode) Setattr(ctx context.Context, f FileHandle, in *fuse.SetAt
 			}
 		}
 
+		// Truncate before setting times, so an explicit mtime is
+		// not clobbered by the truncate.
+		if sz, ok := in.GetSize(); ok {
+			if err := syscall.Truncate(p, int64(sz)); err != nil {
+				return ToErrno(err)
+			}
+		}
+
 		mtime, mok := in.GetMTime()
 		atime, aok := in.GetATime()
 
@@ -465,12 +473,6 @@ func (n *LoopbackNode) Setattr(ctx context.Context, f FileHandle, in *fuse.SetAt
 			}
 			ts := []unix.Timespec{ta, tm}
 			if err := unix.UtimesNanoAt(unix.AT_FDCWD, p, ts, unix.AT_SYMLINK_NOFOLLOW); err != nil {
-				return ToErrno(err)
-			}
-		}
-
-		if sz, ok := in.GetSize(); ok {
-			if err := syscall.Truncate(p, int64(sz)); err != nil {
 				return ToErrno(err)
 			}
 		}

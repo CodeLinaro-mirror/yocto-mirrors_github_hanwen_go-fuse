@@ -238,6 +238,14 @@ func (f *LoopbackFile) setAttr(ctx context.Context, in *fuse.SetAttrIn) syscall.
 		}
 	}
 
+	// Truncate before setting times, so an explicit mtime is not
+	// clobbered by the truncate.
+	if sz, ok := in.GetSize(); ok {
+		if errno := f.ftruncate(sz); errno != 0 {
+			return errno
+		}
+	}
+
 	mtime, mok := in.GetMTime()
 	atime, aok := in.GetATime()
 
@@ -252,12 +260,6 @@ func (f *LoopbackFile) setAttr(ctx context.Context, in *fuse.SetAttrIn) syscall.
 		}
 		errno = f.utimens(ap, mp)
 		if errno != 0 {
-			return errno
-		}
-	}
-
-	if sz, ok := in.GetSize(); ok {
-		if errno := f.ftruncate(sz); errno != 0 {
 			return errno
 		}
 	}
