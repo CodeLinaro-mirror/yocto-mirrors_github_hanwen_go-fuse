@@ -513,7 +513,7 @@ var _ = (NodeCopyFileRanger)((*LoopbackNode)(nil))
 
 func (n *LoopbackNode) CopyFileRange(ctx context.Context, fhIn FileHandle,
 	offIn uint64, out *Inode, fhOut FileHandle, offOut uint64,
-	len uint64, flags uint64) (uint32, syscall.Errno) {
+	len uint64, flags uint64) (count uint32, errno syscall.Errno) {
 	lfIn, ok := fhIn.(*LoopbackFile)
 	if !ok {
 		return 0, unix.ENOTSUP
@@ -526,11 +526,11 @@ func (n *LoopbackNode) CopyFileRange(ctx context.Context, fhIn FileHandle,
 	signedOffOut := int64(offOut)
 	lfIn.withFd(func(fdIn int) syscall.Errno {
 		return lfOut.withFd(func(fdOut int) syscall.Errno {
-			doCopyFileRange(fdIn, signedOffIn, fdOut, signedOffOut, int(len), int(flags))
+			count, errno = doCopyFileRange(fdIn, signedOffIn, fdOut, signedOffOut, int(len), int(flags))
 			return OK
 		})
 	})
-	return 0, syscall.ENOSYS
+	return count, errno
 }
 
 // NewLoopbackRoot returns a root node for a loopback file system whose

@@ -6,6 +6,7 @@ package fs
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"sync"
@@ -112,23 +113,67 @@ func TestXAttrSymlink(t *testing.T) {
 	}
 }
 
-func TestCopyFileRange(t *testing.T) {
-	tc := newTestCase(t, &testOptions{attrCache: true, entryCache: true})
+type noReadWrite struct {
+	*LoopbackNode
+}
 
-	if !tc.server.KernelSettings().SupportsVersion(7, 28) {
+var _ = NodeWriter((*noReadWrite)(nil))
+
+func (n *noReadWrite) Write(_ context.Context, fh FileHandle, _ []byte, off int64) (uint32, syscall.Errno) {
+	return 0, syscall.ENOTSUP
+}
+
+var _ = NodeReader((*noReadWrite)(nil))
+
+func (n *noReadWrite) Read(_ context.Context, fh FileHandle, _ []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	return nil, syscall.ENOTSUP
+}
+
+func TestCopyFileRange(t *testing.T) {
+	mnt := t.TempDir()
+	orig := t.TempDir()
+
+	root := &Inode{}
+	rdata := &LoopbackRoot{
+		Path: orig,
+	}
+
+	for k, v := range map[string]string{"src": "01234567890123456789",
+		"dst": "abcdefghijabcdefghij"} {
+		if err := os.WriteFile(filepath.Join(orig, k), []byte(v), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	src := &noReadWrite{
+		&LoopbackNode{RootData: rdata},
+	}
+	dst := &noReadWrite{
+		&LoopbackNode{RootData: rdata},
+	}
+	opt := &Options{
+		OnAdd: func(ctx context.Context) {
+			s := root.NewPersistentInode(ctx, src, StableAttr{Ino: 22})
+			root.AddChild("src", s, true)
+			d := root.NewPersistentInode(ctx, dst, StableAttr{Ino: 23})
+			root.AddChild("dst", d, true)
+		},
+	}
+	opt.Debug = testutil.VerboseTest()
+	srv, err := Mount(mnt, root, opt)
+	defer srv.Unmount()
+
+	if !srv.KernelSettings().SupportsVersion(7, 28) {
 		t.Skip("need v7.28 for CopyFileRange")
 	}
 
-	tc.writeOrig("src", "01234567890123456789", 0644)
-	tc.writeOrig("dst", "abcdefghijabcdefghij", 0644)
-
-	f1, err := os.OpenFile(tc.mntDir+"/src", syscall.O_RDONLY, 0)
+	f1, err := os.OpenFile(mnt+"/src", syscall.O_RDONLY, 0)
 	if err != nil {
 		t.Fatalf("Open src: %v", err)
 	}
 	defer f1.Close()
 
-	f2, err := os.OpenFile(tc.mntDir+"/dst", syscall.O_RDWR, 0)
+	f2, err := os.OpenFile(mnt+"/dst", syscall.O_RDWR, 0)
 	if err != nil {
 		t.Fatalf("Open dst: %v", err)
 	}
@@ -147,7 +192,7 @@ func TestCopyFileRange(t *testing.T) {
 	if err = f2.Close(); err != nil {
 		t.Fatalf("Close dst: %v", err)
 	}
-	c, err := os.ReadFile(tc.origDir + "/dst")
+	c, err := os.ReadFile(orig + "/dst")
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
