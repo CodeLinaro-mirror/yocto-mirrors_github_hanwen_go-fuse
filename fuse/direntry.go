@@ -119,9 +119,9 @@ func (l *DirEntryList) addDirEntry(e *DirEntry, prefix int) bool {
 	copy(l.buf[oldLen:], e.Name)
 	oldLen += len(e.Name)
 
-	if padding > 0 {
-		l.buf[oldLen] = 0
-	}
+	// The buffer is recycled, so the padding may hold data from
+	// a previous request.
+	clear(l.buf[oldLen : oldLen+padding])
 	l.Offset = dirent.Off
 	return true
 }
