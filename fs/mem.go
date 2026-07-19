@@ -32,16 +32,13 @@ var _ = (NodeAllocater)((*MemRegularFile)(nil))
 func (f *MemRegularFile) Allocate(ctx context.Context, fh FileHandle, off uint64, size uint64, mode uint32) syscall.Errno {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	oldSz := len(f.Data)
-	if uint64(cap(f.Data)) < off+size {
-		n := make([]byte, off+size)
+	if keepSizeMode(mode) {
+		return 0
+	}
+	if end := off + size; end > uint64(len(f.Data)) {
+		n := make([]byte, end)
 		copy(n, f.Data)
 		f.Data = n
-	}
-	if keepSizeMode(mode) {
-		f.Data = f.Data[:oldSz]
-	} else if len(f.Data) < int(off+size) {
-		f.Data = f.Data[:off+size]
 	}
 	return 0
 }
