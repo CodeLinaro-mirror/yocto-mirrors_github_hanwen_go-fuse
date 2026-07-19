@@ -17,9 +17,11 @@ const (
 func (r *fuseFD) registerBackingFd(m *BackingMap) (int32, syscall.Errno) {
 	var id uintptr
 	var errno syscall.Errno
-	r.withFD(func(fd int) {
+	if cerr := r.withFD(func(fd int) {
 		id, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(_DEV_IOC_BACKING_OPEN), uintptr(unsafe.Pointer(m)))
-	})
+	}); cerr != nil {
+		errno = syscall.EBADF
+	}
 	if r.server.opts.Debug {
 		r.server.opts.Logger.Printf("ioctl: BACKING_OPEN %v: id %d (%v)", m.string(), id, errno)
 	}
@@ -28,9 +30,11 @@ func (r *fuseFD) registerBackingFd(m *BackingMap) (int32, syscall.Errno) {
 
 func (r *fuseFD) unregisterBackingFd(id int32) syscall.Errno {
 	var errno syscall.Errno
-	r.withFD(func(fd int) {
+	if cerr := r.withFD(func(fd int) {
 		_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(_DEV_IOC_BACKING_CLOSE), uintptr(unsafe.Pointer(&id)))
-	})
+	}); cerr != nil {
+		errno = syscall.EBADF
+	}
 
 	if r.server.opts.Debug {
 		r.server.opts.Logger.Printf("ioctl: BACKING_CLOSE id %d: %v", id, errno)
