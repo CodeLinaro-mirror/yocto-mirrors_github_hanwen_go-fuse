@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -64,7 +65,7 @@ type Server struct {
 
 	singleReader bool
 	canSplice    bool
-	serving      bool // for preventing duplicate Serve() calls
+	serving      atomic.Bool // for preventing duplicate Serve() calls
 
 	// Used to implement WaitMount on macos.
 	ready chan error
@@ -370,13 +371,12 @@ func handleEINTR(fn func() error) (err error) {
 //
 // Each filesystem operation executes in a separate goroutine.
 func (ms *Server) Serve() {
-	if ms.serving {
+	if !ms.serving.CompareAndSwap(false, true) {
 		// Calling Serve() multiple times leads to a panic on unmount and fun
 		// debugging sessions ( https://github.com/hanwen/go-fuse/issues/512 ).
 		// Catch it early.
 		log.Panic("Serve() must only be called once, you have called it a second time")
 	}
-	ms.serving = true
 
 	ms.loop()
 	ms.fuseFD.loops.Wait()
