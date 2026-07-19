@@ -19,13 +19,12 @@ func (r *fuseFD) write(req *request) Status {
 	if req.readResult != nil {
 		req.outPayload, req.status = req.readResult.Bytes(req.outPayload)
 		req.serializeHeader(len(req.outPayload))
-		req.readResult.Done()
-		req.readResult = nil
 	}
 
 	_, err := r.writevFD([][]byte{req.outHeaderBuf, req.outDataBuf, req.outPayload})
 	if req.readResult != nil {
 		req.readResult.Done()
+		req.readResult = nil
 	}
 	return ToStatus(err)
 }
