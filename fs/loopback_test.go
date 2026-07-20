@@ -150,4 +150,24 @@ func TestLoopbackNonRoot(t *testing.T) {
 	if !bytes.Equal(data, content) {
 		t.Errorf("got %q, want %q", data, content)
 	}
+
+	ln := mnt + "/sub/link"
+	if err := syscall.Link(fn2, ln); err != nil {
+		t.Fatalf("Link: %v", err)
+	}
+
+	var st1, st2 syscall.Stat_t
+	if err := syscall.Lstat(fn2, &st1); err != nil {
+		t.Fatalf("Lstat: %v", err)
+	}
+	if err := syscall.Lstat(ln, &st2); err != nil {
+		t.Fatalf("Lstat: %v", err)
+	}
+	if st1.Ino != st2.Ino {
+		t.Errorf("Link: got inode %d, want %d", st2.Ino, st1.Ino)
+	}
+
+	if err := syscall.Link(fn2, mnt+"/differentRoot/link"); err != syscall.EXDEV {
+		t.Errorf("cross-root Link: got %v, want EXDEV", err)
+	}
 }

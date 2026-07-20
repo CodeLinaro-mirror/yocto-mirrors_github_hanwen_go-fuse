@@ -320,9 +320,17 @@ func (n *LoopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 var _ = (NodeLinker)((*LoopbackNode)(nil))
 
 func (n *LoopbackNode) Link(ctx context.Context, target InodeEmbedder, name string, out *fuse.EntryOut) (*Inode, syscall.Errno) {
+	e2, ok := target.(loopbackNodeEmbedder)
+	if !ok {
+		return nil, syscall.EXDEV
+	}
+
+	if e2.loopbackNode().RootData != n.RootData {
+		return nil, syscall.EXDEV
+	}
 
 	p := filepath.Join(n.path(), name)
-	err := syscall.Link(filepath.Join(n.RootData.Path, target.EmbeddedInode().Path(nil)), p)
+	err := syscall.Link(e2.loopbackNode().path(), p)
 	if err != nil {
 		return nil, ToErrno(err)
 	}
