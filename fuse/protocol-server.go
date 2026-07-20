@@ -38,7 +38,10 @@ func (ms *protocolServer) handleRequest(h *operationHandler, req *request) {
 	}
 
 	if h == nil || h.Func == nil {
-		ms.opts.Logger.Printf("Unimplemented opcode %v", operationName(req.inHeader().Opcode))
+		c := req.inHeader().Opcode
+		if c != _OP_COPY_FILE_RANGE_64 { // _OP_COPY_FILE_RANGE_64 is intentionally not supported.
+			ms.opts.Logger.Printf("Unimplemented opcode %v", operationName(c))
+		}
 		req.status = ENOSYS
 	} else if req.inHeader().NodeId == pollHackInode ||
 		req.inHeader().NodeId == FUSE_ROOT_ID && h.FileNames > 0 && req.filename() == pollHackName {
