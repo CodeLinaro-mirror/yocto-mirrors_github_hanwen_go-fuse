@@ -165,7 +165,7 @@ func (n *LoopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 	n.preserveOwner(ctx, p)
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p)
+		syscall.Unlink(p)
 		return nil, ToErrno(err)
 	}
 
