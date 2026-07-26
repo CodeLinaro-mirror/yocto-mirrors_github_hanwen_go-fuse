@@ -48,7 +48,7 @@ func (r *fuseFD) trySplice(req *request, readResult ReadResult) error {
 	}
 
 	// Write header into pipe.
-	headerSz, err := writev(int(pair.WriteFd()), [][]byte{req.outHeaderBuf, req.outDataBuf})
+	headerSz, err := pair.Writev([][]byte{req.outHeaderBuf, req.outDataBuf})
 	if err != nil {
 		return err
 	}
