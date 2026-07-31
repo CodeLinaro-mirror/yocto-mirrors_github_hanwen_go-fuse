@@ -459,11 +459,11 @@ func TestIoctlFIEMAP(t *testing.T) {
 	if err := os.WriteFile(fn, bytes.Repeat([]byte{42}, 64*1024), 0666); err != nil {
 		t.Fatal(err)
 	}
-	fd, err := syscall.Open(fn, syscall.O_RDONLY, 0)
+	f, err := os.Open(fn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer syscall.Close(fd)
+ 	defer f.Close()
 
 	req := fiemap{
 		Length: ^uint64(0),
@@ -476,7 +476,7 @@ func TestIoctlFIEMAP(t *testing.T) {
 
 	// FS_IOC_FIEMAP = _IOWR('f', 11, struct fiemap)
 	cmd := ioctl.New(ioctl.READ|ioctl.WRITE, 'f', 11, sz)
-	lf := NewLoopbackFile(fd).(FileIoctler)
+	lf := NewLoopbackFileFromOS(f)
 	_, errno := lf.Ioctl(context.Background(), uint32(cmd), 0, input, output)
 	if errno == syscall.ENOTTY || errno == syscall.EOPNOTSUPP {
 		t.Skipf("FIEMAP on %q unsupported: %v", fn, errno)
