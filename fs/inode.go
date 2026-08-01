@@ -65,15 +65,6 @@ type Inode struct {
 
 	// Following data is mutable.
 
-	// file handles.
-	// protected by bridge.mu
-	openFiles []uint32
-
-	// backing files, protected by bridge.mu
-	backingIDRefcount int
-	backingID         int32
-	backingFd         int
-
 	// mu protects the following mutable fields. When locking
 	// multiple Inodes, locks must be acquired using
 	// lockNodes/unlockNodes
@@ -430,14 +421,9 @@ func (n *Inode) removeRefInner(nlookup uint64, dropPersistence bool, inputUnused
 		n.changeCounter++
 	}
 
-	n.bridge.mu.Lock()
 	if n.lookupCount == 0 {
-		// Dropping the node from stableAttrs guarantees that no new references to this node are
-		// handed out to the kernel, hence we can also safely delete it from kernelNodeIds.
-		delete(n.bridge.stableAttrs, n.stableAttr)
-		delete(n.bridge.kernelNodeIds, n.nodeId)
+		n.bridge.ids.forget(n)
 	}
-	n.bridge.mu.Unlock()
 
 retry:
 	for {
