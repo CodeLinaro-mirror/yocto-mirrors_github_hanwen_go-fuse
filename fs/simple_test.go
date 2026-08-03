@@ -190,8 +190,12 @@ func TestFileFdLeak(t *testing.T) {
 	bridge := tc.rawFS.(*rawBridge)
 	tc = nil
 
+	bridge.ids.mu.Lock()
+	got := len(bridge.ids.files)
+	bridge.ids.mu.Unlock()
+
 	// posixtest.FdLeak also uses 15 as a limit.
-	if got, want := bridge.ids.fileCount(), 15; got > want {
+	if want := 15; got > want {
 		t.Errorf("found %d used file handles, should be <= %d", got, want)
 	}
 }

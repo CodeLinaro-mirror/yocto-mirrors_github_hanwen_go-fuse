@@ -106,7 +106,9 @@ func TestForget(t *testing.T) {
 	time.Sleep(ttl)
 
 	bridge := rawFS.(*rawBridge)
-	l := bridge.ids.nodeCount()
+	bridge.ids.mu.Lock()
+	l := len(bridge.ids.nodes)
+	bridge.ids.mu.Unlock()
 	if l != 1 {
 		t.Fatalf("got %d live nodes, want 1", l)
 	}

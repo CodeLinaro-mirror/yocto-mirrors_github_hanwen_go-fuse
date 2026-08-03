@@ -285,19 +285,3 @@ func (t *mapIdentityTable) recycleFile(fh uint32) {
 	defer t.mu.Unlock()
 	t.freeFiles = append(t.freeFiles, fh)
 }
-
-// nodeCount returns the number of currently registered nodes. Used by
-// tests.
-func (t *mapIdentityTable) nodeCount() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return len(t.nodes)
-}
-
-// fileCount returns the size of the file handle table (including
-// unallocated/free slots). Used by tests.
-func (t *mapIdentityTable) fileCount() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return len(t.files)
-}
