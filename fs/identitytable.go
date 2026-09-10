@@ -179,6 +179,13 @@ func (t *mapIdentityTable) registerNew(id StableAttr, child *Inode, exclusive bo
 		if len(t.nodes) > t.nodeCountHigh {
 			t.nodeCountHigh = len(t.nodes)
 		}
+	} else if e.inode != child {
+		// The nodeid is already registered, but for a
+		// different Inode.  The kernel will detects the
+		// generation mismatch, and evicts its own cached VFS
+		// inode before routing any new request against this
+		// nodeid to the new object.
+		e.inode = child
 	}
 	// Any node that might be there is overwritten - it is obsolete now.
 	t.stableAttrs[t.dedupKey(id)] = child

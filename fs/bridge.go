@@ -135,7 +135,17 @@ func (b *rawBridge) newInodeUnlocked(ops InodeEmbedder, id StableAttr, persisten
 		}
 	}
 
-	initInode(ops.embed(), ops, id, b, persistent, b.ids.allocateNodeID())
+	var nodeID uint64
+	if b.options.ExternalNodeID {
+		if id.Reserved() {
+			log.Panicf("using reserved node ID %d", id.Ino)
+		}
+		nodeID = id.Ino
+	} else {
+		nodeID = b.ids.allocateNodeID()
+	}
+
+	initInode(ops.embed(), ops, id, b, persistent, nodeID)
 	return ops.embed()
 }
 
