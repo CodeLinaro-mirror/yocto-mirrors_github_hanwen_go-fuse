@@ -88,7 +88,7 @@ func TestBridgeReaddirPlusVirtualEntries(t *testing.T) {
 
 // TestTypeChange simulates inode number reuse that happens on real
 // filesystems. For go-fuse, inode number reuse can look like a file changing
-// to a directory or vice versa. Acutally, the old inode does not exist anymore,
+// to a directory or vice versa. Actually, the old inode does not exist anymore,
 // we just have not received the FORGET yet.
 func TestTypeChange(t *testing.T) {
 	rootNode := testTypeChangeIno{}
