@@ -8,9 +8,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"reflect"
+	"runtime"
 	"sync"
 	"syscall"
 	"testing"
@@ -31,6 +33,13 @@ func testMount(t *testing.T, root InodeEmbedder, opts *Options) (string, *fuse.S
 		}
 	}
 	opts.Debug = testutil.VerboseTest()
+	opts.PanicHandler = func(e any) fuse.Status {
+		buf := make([]byte, 64<<10)
+		buf = buf[:runtime.Stack(buf, false)]
+		log.Printf("panic in FS handler: %v\n%s", e, buf)
+		t.Fail()
+		return fuse.EIO
+	}
 
 	server, err := Mount(mntDir, root, opts)
 	if err != nil {
