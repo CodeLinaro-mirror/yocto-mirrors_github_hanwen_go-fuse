@@ -326,6 +326,7 @@ func TestParallelDiropsHang(t *testing.T) {
 		EntryTimeout: &sec,
 	}
 	opts.Debug = testutil.VerboseTest()
+	opts.PanicHandler = testutil.PanicHandler(t, fuse.EIO)
 
 	rawFS := NewNodeFS(loopbackRoot, opts)
 	server, err := fuse.NewServer(rawFS, mnt, &opts.MountOptions)

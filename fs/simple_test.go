@@ -121,6 +121,7 @@ func newTestCase(t *testing.T, opts *testOptions) *testCase {
 		DisableSplice:     opts.disableSplice,
 		IDMappedMount:     opts.idMappedMount,
 		Logger:            fsOpts.Logger,
+		PanicHandler:      testutil.PanicHandler(t, fuse.EIO),
 	}
 	if !opts.suppressDebug {
 		mOpts.Debug = testutil.VerboseTest()
@@ -748,9 +749,10 @@ func init() {
 	syscall.Umask(0)
 }
 
-func testMountDir(dir string) error {
+func testMountDir(t *testing.T, dir string) error {
 	opts := &Options{}
 	opts.Debug = testutil.VerboseTest()
+	opts.PanicHandler = testutil.PanicHandler(t, fuse.EIO)
 	server, err := Mount(dir, &Inode{}, opts)
 	if err != nil {
 		return err
@@ -779,7 +781,7 @@ func TestParallelMount(t *testing.T) {
 	for i := 0; i < P; i++ {
 		go func() {
 			for d := range todo {
-				result <- testMountDir(d)
+				result <- testMountDir(t, d)
 			}
 		}()
 	}

@@ -78,6 +78,7 @@ func TestForget(t *testing.T) {
 		EntryTimeout:      &ttl,
 	}
 	options.Debug = testutil.VerboseTest()
+	options.PanicHandler = testutil.PanicHandler(t, fuse.EIO)
 	dir := t.TempDir()
 
 	rawFS := NewNodeFS(root, options)
