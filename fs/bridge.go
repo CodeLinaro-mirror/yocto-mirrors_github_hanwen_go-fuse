@@ -208,8 +208,9 @@ func (b *rawBridge) addNewChild(parent *Inode, name string, child *Inode, file F
 		child = winner
 	}
 
-	child.lookupCount++
+	child.hasKernelRef = true
 	child.changeCounter++
+	b.ids.addLookup(entry)
 
 	if file != nil {
 		fe = b.ids.registerFile(entry, file, fileFlags)
@@ -292,7 +293,7 @@ func NewNodeFS(root InodeEmbedder, opts *Options) fuse.RawFileSystem {
 		1,
 	)
 	bridge.root = root.embed()
-	bridge.root.lookupCount = 1
+	bridge.root.hasKernelRef = true
 	bridge.ids.registerRoot(bridge.root)
 
 	if opts.OnAdd != nil {
@@ -471,10 +472,9 @@ func (b *rawBridge) Create(cancel <-chan struct{}, input *fuse.CreateIn, name st
 }
 
 func (b *rawBridge) Forget(nodeid, nlookup uint64) {
-	n, _ := b.inode(nodeid, 0)
-	hasLookups, _, _ := n.removeRef(nlookup, false)
-
-	if !hasLookups {
+	e, _ := b.entry(nodeid, 0)
+	hasKernelRef, _, _ := e.inode.removeRef(nlookup, false)
+	if !hasKernelRef {
 		b.ids.compact()
 	}
 }

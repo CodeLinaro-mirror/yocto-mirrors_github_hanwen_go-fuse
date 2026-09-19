@@ -26,6 +26,10 @@ import (
 type nodeEntry struct {
 	inode *Inode
 
+	// lookupCount is the kernel's outstanding lookup
+	// count for this nodeid.
+	lookupCount uint64
+
 	// file handles open on this node.
 	openFiles []uint32
 
@@ -112,7 +116,7 @@ func (t *mapIdentityTable) dedupKey(id StableAttr) StableAttr {
 func (t *mapIdentityTable) registerRoot(root *Inode) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.nodes[1] = &nodeEntry{inode: root}
+	t.nodes[1] = &nodeEntry{inode: root, lookupCount: 1}
 	t.nextNodeId = 2 // the root node has nodeid 1
 }
 
@@ -190,6 +194,35 @@ func (t *mapIdentityTable) registerNew(id StableAttr, child *Inode, exclusive bo
 	// Any node that might be there is overwritten - it is obsolete now.
 	t.stableAttrs[t.dedupKey(id)] = child
 	return child, e
+}
+
+// addLookup credits e with a fresh kernel lookup reference (eg. from a
+// successful LOOKUP/CREATE/MKNOD reply).
+func (t *mapIdentityTable) addLookup(e *nodeEntry) {
+	t.mu.Lock()
+	e.lookupCount++
+	t.mu.Unlock()
+}
+
+// decLookup applies a FORGET to nodeID, and reports whether that node ID
+// lookup count reached zero.
+//
+// The caller must hold the Inode's mu: lookupCount and the Inode's
+// hasKernelRef have to be updated together (addLookup is called under
+// that lock too), or a LOOKUP racing with a FORGET can leave the
+// kernel holding a nodeid we already dropped
+func (t *mapIdentityTable) decLookup(nodeID uint64, nlookup uint64) (n *Inode, reachedZero bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	e := t.nodes[nodeID]
+	if e == nil {
+		log.Panicf("decLookup: unknown node %d", nodeID)
+	}
+	if nlookup > e.lookupCount {
+		log.Panicf("n%d lookupCount underflow: lookupCount=%d, decrement=%d", nodeID, e.lookupCount, nlookup)
+	}
+	e.lookupCount -= nlookup
+	return e.inode, e.lookupCount == 0
 }
 
 // node resolves a (nodeid, fh) pair as sent by the kernel. fh may be 0,

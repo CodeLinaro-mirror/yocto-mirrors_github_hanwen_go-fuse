@@ -78,7 +78,7 @@ type Inode struct {
 	persistent bool
 
 	// changeCounter increments every time the mutable state
-	// (lookupCount, persistent, children, parents) protected by
+	// (hasKernelRef, persistent, children, parents) protected by
 	// mu is modified.
 	//
 	// This is used in places where we have to relock inode into inode
@@ -86,9 +86,11 @@ type Inode struct {
 	// did not changed, and if it changed - retry the operation.
 	changeCounter uint32
 
-	// Number of kernel refs to this node.
-	// When you change this, you MUST increment changeCounter.
-	lookupCount uint64
+	// hasKernelRef records whether the kernel currently holds at
+	// least one lookup reference to this Inode. This is derived
+	// from lookupCount, but protected by mu. When you change
+	// this, you MUST increment changeCounter.
+	hasKernelRef bool
 
 	// Children of this Inode.
 	// When you change this, you MUST increment changeCounter.
@@ -262,7 +264,7 @@ func unlockNodes(ns ...*Inode) {
 func (n *Inode) Forgotten() bool {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return n.lookupCount == 0 && n.parents.count() == 0 && !n.persistent
+	return !n.hasKernelRef && n.parents.count() == 0 && !n.persistent
 }
 
 // Operations returns the object implementing the file system
@@ -371,15 +373,22 @@ func (n *Inode) newInode(ctx context.Context, ops InodeEmbedder, id StableAttr, 
 	return n.bridge.newInode(ctx, ops, id, persistent)
 }
 
-// removeRef decreases references. Returns if this operation caused
-// the node to be forgotten (for kernel references), and whether it is
-// live (ie. was not dropped from the tree)
-func (n *Inode) removeRef(nlookup uint64, dropPersistence bool) (hasLookups, isPersistent, hasChildren bool) {
-	var beforeLookups, beforePersistence, beforeChildren bool
+// removeRef updates this Inode's kernel-ref/persistence state. Returns
+// if this operation left the node holding a kernel reference, and
+// whether it is live (ie. was not dropped from the tree)
+//
+// nlookup references are subtracted from the kernel's lookup count
+// first, and the kernel reference is only dropped if that count
+// reaches zero.
+func (n *Inode) removeRef(nlookup uint64, dropPersistence bool) (hasKernelRef, isPersistent, hasChildren bool) {
+	if nlookup > 0 && dropPersistence {
+		log.Panic("only one allowed")
+	}
+	var beforeKernelRef, beforePersistence, beforeChildren bool
 	var unusedParents []*Inode
-	beforeLookups, hasLookups, beforePersistence, isPersistent, beforeChildren, hasChildren, unusedParents = n.removeRefInner(nlookup, dropPersistence, unusedParents)
+	beforeKernelRef, hasKernelRef, beforePersistence, isPersistent, beforeChildren, hasChildren, unusedParents = n.removeRefInner(nlookup, dropPersistence, unusedParents)
 
-	if !hasLookups && !isPersistent && !hasChildren && (beforeChildren || beforeLookups || beforePersistence) {
+	if !hasKernelRef && !isPersistent && !hasChildren && (beforeChildren || beforeKernelRef || beforePersistence) {
 		if nf, ok := n.ops.(NodeOnForgetter); ok {
 			nf.OnForget()
 		}
@@ -399,29 +408,40 @@ func (n *Inode) removeRef(nlookup uint64, dropPersistence bool) (hasLookups, isP
 	return
 }
 
-func (n *Inode) removeRefInner(nlookup uint64, dropPersistence bool, inputUnusedParents []*Inode) (beforeLookups, hasLookups, beforePersistent, isPersistent, beforeChildren, hasChildren bool, unusedParents []*Inode) {
+func (n *Inode) removeRefInner(nlookup uint64, dropPersistence bool, inputUnusedParents []*Inode) (beforeKernelRef, hasKernelRef, beforePersistent, isPersistent, beforeChildren, hasChildren bool, unusedParents []*Inode) {
 	var lockme []*Inode
 	var parents []parentData
 
 	unusedParents = inputUnusedParents
 
 	n.mu.Lock()
-	beforeLookups = n.lookupCount > 0
+	beforeKernelRef = n.hasKernelRef
 	beforePersistent = n.persistent
 	beforeChildren = n.children.len() > 0
-	if nlookup > 0 && dropPersistence {
-		log.Panic("only one allowed")
-	} else if nlookup > n.lookupCount {
-		log.Panicf("n%d lookupCount underflow: lookupCount=%d, decrement=%d", n.nodeId, n.lookupCount, nlookup)
-	} else if nlookup > 0 {
-		n.lookupCount -= nlookup
-		n.changeCounter++
-	} else if dropPersistence && n.persistent {
+	// The n.hasKernelRef check is not just an optimization: it is what
+	// makes the decLookup call safe. forget() deletes the nodeEntry
+	// exactly when hasKernelRef drops to false, so a node that still
+	// has a kernel ref is guaranteed to still be registered.
+	if nlookup > 0 && n.hasKernelRef {
+		// The lookup count must be decremented here, under n.mu,
+		// rather than by the caller: addNewChild bumps it (addLookup)
+		// and sets hasKernelRef under this same lock, so deciding
+		// "reached zero" anywhere else lets a LOOKUP that revives the
+		// node between the FORGET arriving and here go unnoticed. We
+		// would then drop a nodeid the kernel just got handed again,
+		// and the next request naming it fails the lookup in
+		// rawBridge.entry.
+		if _, reachedZero := n.bridge.ids.decLookup(n.nodeId, nlookup); reachedZero {
+			n.hasKernelRef = false
+			n.changeCounter++
+		}
+	}
+	if dropPersistence && n.persistent {
 		n.persistent = false
 		n.changeCounter++
 	}
 
-	if n.lookupCount == 0 {
+	if !n.hasKernelRef {
 		n.bridge.ids.forget(n)
 	}
 
@@ -430,7 +450,7 @@ retry:
 		lockme = append(lockme[:0], n)
 		parents = parents[:0]
 		nChange := n.changeCounter
-		hasLookups = n.lookupCount > 0
+		hasKernelRef = n.hasKernelRef
 		hasChildren = n.children.len() > 0
 		isPersistent = n.persistent
 		for _, p := range n.parents.all() {
@@ -439,7 +459,7 @@ retry:
 		}
 		n.mu.Unlock()
 
-		if hasLookups || hasChildren || isPersistent {
+		if hasKernelRef || hasChildren || isPersistent {
 			return
 		}
 
@@ -459,13 +479,13 @@ retry:
 			}
 			parentNode.children.del(p.parent, p.name)
 
-			if parentNode.children.len() == 0 && parentNode.lookupCount == 0 && !parentNode.persistent {
+			if parentNode.children.len() == 0 && !parentNode.hasKernelRef && !parentNode.persistent {
 				unusedParents = append(unusedParents, parentNode)
 			}
 		}
 
-		if n.lookupCount != 0 {
-			log.Panicf("n%d %p lookupCount changed: %d", n.nodeId, n, n.lookupCount)
+		if n.hasKernelRef {
+			log.Panicf("n%d %p hasKernelRef changed", n.nodeId, n)
 		}
 
 		unlockNodes(lockme...)
@@ -600,7 +620,7 @@ retry:
 			n.children.del(n, nm)
 		}
 
-		live = n.lookupCount > 0 || n.children.len() > 0 || n.persistent
+		live = n.hasKernelRef || n.children.len() > 0 || n.persistent
 		unlockNodes(lockme...)
 
 		// removal successful
@@ -608,8 +628,8 @@ retry:
 	}
 
 	if !live {
-		hasLookups, isPersistent, hasChildren := n.removeRef(0, false)
-		return true, (hasLookups || isPersistent || hasChildren)
+		hasKernelRef, isPersistent, hasChildren := n.removeRef(0, false)
+		return true, (hasKernelRef || isPersistent || hasChildren)
 	}
 
 	return true, true
