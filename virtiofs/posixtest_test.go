@@ -93,22 +93,7 @@ reboot -n -f
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command(testAssets.qemuBin,
-		"-M", "pc", "-m", "4G", "-cpu", "host", "-smp", "2",
-		"-enable-kvm",
-		"-chardev", "socket,id=char0,path="+sockpath,
-		"-device", "vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=myfs",
-		"-object", "memory-backend-file,id=mem,size=4G,mem-path=/dev/shm,share=on",
-		"-numa", "node,memdev=mem",
-		"-kernel", testAssets.kernel,
-		"-initrd", ramdisk,
-		"-nographic",
-		"-no-reboot",
-		"-append", "console=ttyS0",
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := newQemuCmd(sockpath, ramdisk)
 	log.Println("running", cmd.Args)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)

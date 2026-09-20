@@ -18,6 +18,32 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
+// newQemuCmd builds the qemu invocation shared by the virtiofs tests: a VM
+// booting testAssets.kernel/ramdisk with a vhost-user-fs-pci device backed
+// by the vhost-user socket at sockpath.
+func newQemuCmd(sockpath, ramdisk string) *exec.Cmd {
+	cmd := exec.Command(testAssets.qemuBin,
+		"-M", "pc", "-m", "4G", "-cpu", "host", "-smp", "2",
+		"-enable-kvm",
+		"-chardev", "socket,id=char0,path="+sockpath,
+		"-device", "vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=myfs",
+		"-object", "memory-backend-file,id=mem,size=4G,mem-path=/dev/shm,share=on",
+		"-numa", "node,memdev=mem",
+		"-kernel", testAssets.kernel,
+		"-initrd", ramdisk,
+		// Avoid -nographic; don't clear terminal.
+		"-display", "none",
+		"-serial", "stdio",
+		"-monitor", "none",
+		"-no-reboot",
+		"-append", "console=ttyS0",
+	)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
+}
+
 // This is for the guest to signal it's finished. This is because I am
 // unable to make QEMU exit when the guest calls poweroff.
 type killNotifyRoot struct {
@@ -113,22 +139,7 @@ reboot -n -f
 	}
 	defer os.Remove(ramdisk)
 
-	cmd := exec.Command(testAssets.qemuBin,
-		"-M", "pc", "-m", "4G", "-cpu", "host", "-smp", "2",
-		"-enable-kvm",
-		"-chardev", "socket,id=char0,path="+sockpath,
-		"-device", "vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=myfs",
-		"-object", "memory-backend-file,id=mem,size=4G,mem-path=/dev/shm,share=on",
-		"-numa", "node,memdev=mem",
-		"-kernel", testAssets.kernel,
-		"-initrd", ramdisk,
-		"-nographic",
-		"-no-reboot",
-		"-append", "console=ttyS0",
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := newQemuCmd(sockpath, ramdisk)
 	log.Println("running", cmd.Args)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
