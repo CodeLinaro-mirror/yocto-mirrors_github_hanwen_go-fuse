@@ -279,7 +279,7 @@ func TestPosix(t *testing.T) {
 		//		"NlinkZero",
 		"ParallelFileOpen",
 		//		"Link",
-		"ReadDir",
+		"ReadDirBasic",
 	}
 
 	for _, nm := range cases {

@@ -43,7 +43,7 @@ var All = map[string]func(*testing.T, string){
 	"OpenAt":                     OpenAt,
 	"OpenSymlinkRace":            OpenSymlinkRace,
 	"ParallelFileOpen":           ParallelFileOpen,
-	"ReadDir":                    ReadDir,
+	"ReadDirBasic":               ReadDirBasic,
 	"ReadDirConsistency":         ReadDirConsistency,
 	"RenameOpenDir":              RenameOpenDir,
 	"RenameOverwriteDestExist":   RenameOverwriteDestExist,
@@ -541,7 +541,7 @@ func readAllDirEntries(fd int) ([]fuse.DirEntry, error) {
 
 // ReadDir creates 110 files one by one, checking that we get the expected
 // entries after each file creation.
-func ReadDir(t *testing.T, mnt string) {
+func ReadDirBasic(t *testing.T, mnt string) {
 	want := map[string]bool{}
 	// 40 bytes of filename, so 110 entries overflows a
 	// 4096 page.
