@@ -7,6 +7,7 @@ package fs
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -103,11 +104,15 @@ func newTestCase(t *testing.T, opts *testOptions) *testCase {
 	if !opts.entryCache {
 		entryDT = nil
 	}
-	tc.rawFS = NewNodeFS(tc.loopback, &Options{
+	fsOpts := &Options{
 		EntryTimeout: entryDT,
 		AttrTimeout:  attrDT,
 		Logger:       log.New(os.Stderr, "", 0),
-	})
+	}
+	if opts.suppressDebug {
+		fsOpts.Logger = log.New(io.Discard, "", 0)
+	}
+	tc.rawFS = NewNodeFS(tc.loopback, fsOpts)
 
 	mOpts := &fuse.MountOptions{
 		DirectMount:       opts.directMount,
@@ -115,6 +120,7 @@ func newTestCase(t *testing.T, opts *testOptions) *testCase {
 		EnableLocks:       opts.enableLocks,
 		DisableSplice:     opts.disableSplice,
 		IDMappedMount:     opts.idMappedMount,
+		Logger:            fsOpts.Logger,
 	}
 	if !opts.suppressDebug {
 		mOpts.Debug = testutil.VerboseTest()
@@ -416,6 +422,7 @@ func TestPosix(t *testing.T) {
 	noisy := map[string]bool{
 		"ParallelFileOpen": true,
 		"ReadDir":          true,
+		"OpenSymlinkRace":  true,
 	}
 
 	for nm, fn := range posixtest.All {
