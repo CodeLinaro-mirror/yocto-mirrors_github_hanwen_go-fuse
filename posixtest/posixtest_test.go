@@ -34,6 +34,7 @@ func TestAll(t *testing.T) {
 			}
 
 			fn(t, sub)
+			os.RemoveAll(sub)
 		})
 	}
 }
