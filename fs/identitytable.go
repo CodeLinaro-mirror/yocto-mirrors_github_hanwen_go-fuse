@@ -8,6 +8,7 @@ import (
 	"log"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
@@ -24,7 +25,8 @@ import (
 // backing-fd registration keeps its lookup count (and therefore its
 // entry) alive.
 type nodeEntry struct {
-	inode *Inode
+	// inode is the *Inode currently registered under this nodeid.
+	inode atomic.Pointer[Inode]
 
 	// lookupCount is the kernel's outstanding lookup
 	// count for this nodeid.
@@ -116,7 +118,9 @@ func (t *mapIdentityTable) dedupKey(id StableAttr) StableAttr {
 func (t *mapIdentityTable) registerRoot(root *Inode) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.nodes[1] = &nodeEntry{inode: root, lookupCount: 1}
+	e := &nodeEntry{lookupCount: 1}
+	e.inode.Store(root)
+	t.nodes[1] = e
 	t.nextNodeId = 2 // the root node has nodeid 1
 }
 
@@ -178,18 +182,19 @@ func (t *mapIdentityTable) registerNew(id StableAttr, child *Inode, exclusive bo
 		// Fresh node: create its entry. If child was already
 		// registered (the old == child case above), its entry - and
 		// any accumulated openFiles/backing state - is left alone.
-		e = &nodeEntry{inode: child}
+		e = &nodeEntry{}
+		e.inode.Store(child)
 		t.nodes[child.nodeId] = e
 		if len(t.nodes) > t.nodeCountHigh {
 			t.nodeCountHigh = len(t.nodes)
 		}
-	} else if e.inode != child {
+	} else if e.inode.Load() != child {
 		// The nodeid is already registered, but for a
 		// different Inode.  The kernel will detects the
 		// generation mismatch, and evicts its own cached VFS
 		// inode before routing any new request against this
 		// nodeid to the new object.
-		e.inode = child
+		e.inode.Store(child)
 	}
 	// Any node that might be there is overwritten - it is obsolete now.
 	t.stableAttrs[t.dedupKey(id)] = child
@@ -222,7 +227,7 @@ func (t *mapIdentityTable) decLookup(nodeID uint64, nlookup uint64) (n *Inode, r
 		log.Panicf("n%d lookupCount underflow: lookupCount=%d, decrement=%d", nodeID, e.lookupCount, nlookup)
 	}
 	e.lookupCount -= nlookup
-	return e.inode, e.lookupCount == 0
+	return e.inode.Load(), e.lookupCount == 0
 }
 
 // node resolves a (nodeid, fh) pair as sent by the kernel. fh may be 0,
@@ -302,7 +307,7 @@ func (t *mapIdentityTable) registerFile(e *nodeEntry, f FileHandle, flags uint32
 	}
 	fe.nodeIndex = len(e.openFiles)
 	fe.file = f
-	fe.inode = e.inode
+	fe.inode = e.inode.Load()
 	e.openFiles = append(e.openFiles, fe.fh)
 
 	return fe

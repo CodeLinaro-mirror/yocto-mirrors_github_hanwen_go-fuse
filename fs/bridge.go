@@ -323,7 +323,7 @@ func (b *rawBridge) entry(nodeID uint64, fh uint64) (*nodeEntry, *fileEntry) {
 
 func (b *rawBridge) inode(id uint64, fh uint64) (*Inode, *fileEntry) {
 	e, f := b.entry(id, fh)
-	return e.inode, f
+	return e.inode.Load(), f
 }
 
 func (b *rawBridge) Lookup(cancel <-chan struct{}, header *fuse.InHeader, name string, out *fuse.EntryOut) fuse.Status {
@@ -473,7 +473,7 @@ func (b *rawBridge) Create(cancel <-chan struct{}, input *fuse.CreateIn, name st
 
 func (b *rawBridge) Forget(nodeid, nlookup uint64) {
 	e, _ := b.entry(nodeid, 0)
-	hasKernelRef, _, _ := e.inode.removeRef(nlookup, false)
+	hasKernelRef, _, _ := e.inode.Load().removeRef(nlookup, false)
 	if !hasKernelRef {
 		b.ids.compact()
 	}
@@ -483,7 +483,7 @@ func (b *rawBridge) SetDebug(debug bool) {}
 
 func (b *rawBridge) GetAttr(cancel <-chan struct{}, input *fuse.GetAttrIn, out *fuse.AttrOut) fuse.Status {
 	e, fEntry := b.entry(input.NodeId, input.Fh())
-	n := e.inode
+	n := e.inode.Load()
 	f := fEntry.file
 	if f == nil {
 		// The linux kernel doesnt pass along the file
@@ -676,7 +676,7 @@ func (b *rawBridge) RemoveXAttr(cancel <-chan struct{}, header *fuse.InHeader, a
 
 func (b *rawBridge) Open(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.OpenOut) fuse.Status {
 	e, _ := b.entry(input.NodeId, 0)
-	n := e.inode
+	n := e.inode.Load()
 
 	op, ok := n.ops.(NodeOpener)
 	if !ok {
@@ -909,7 +909,7 @@ func (b *rawBridge) Fallocate(cancel <-chan struct{}, input *fuse.FallocateIn) f
 
 func (b *rawBridge) OpenDir(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.OpenOut) fuse.Status {
 	e, _ := b.entry(input.NodeId, 0)
-	n := e.inode
+	n := e.inode.Load()
 
 	var fh FileHandle
 	var fuseFlags uint32
